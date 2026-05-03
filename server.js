@@ -97,4 +97,32 @@ app.post('/criar-pix', async (req, res) => {
   }
 });
 
+
+// ─── Buscar CEP ────────────────────────────────────────────────────────────
+app.get('/cep/:cep', async (req, res) => {
+  const cep = req.params.cep.replace(/\D/g, '');
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await r.json();
+    if (data.erro) return res.json({ encontrado: false });
+    res.json({
+      encontrado: true,
+      uf: data.uf,
+      bairro: data.bairro,
+      cidade: data.localidade,
+      rua: data.logradouro
+    });
+  } catch(e) {
+    try {
+      const r2 = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
+      const d2 = await r2.json();
+      res.json({ encontrado: true, uf: d2.state, bairro: d2.neighborhood, cidade: d2.city, rua: d2.street });
+    } catch(e2) {
+      res.json({ encontrado: false, erro: e2.message });
+    }
+  }
+});
+
 app.listen(PORT, () => console.log(`✅ Proxy na porta ${PORT}`));
+// Removido o listen duplicado - adicionando endpoint CEP antes do listen
+
