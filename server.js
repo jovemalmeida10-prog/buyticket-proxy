@@ -12,10 +12,12 @@ const API_KEY       = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('bas
 const SYNCPAY_URL   = 'https://api.syncpayments.com.br/transactions';
 // ──────────────────────────────────────────────────────────────────────────
 
-app.use(cors()); // Permite chamadas do browser (qualquer origem)
+// CORS liberado para qualquer origem (Netlify, local, etc)
+app.use(cors({ origin: '*', methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
+app.options('*', cors());
 app.use(express.json());
 
-// ─── Health check ─────────────────────────────────────────────────────────
+// ─── Health check ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'BuyTicket Proxy online ✅' });
 });
@@ -31,7 +33,7 @@ app.get('/meu-ip', async (req, res) => {
   }
 });
 
-// ─── Endpoint: Criar cobrança PIX ─────────────────────────────────────────
+// ─── Criar cobrança PIX ────────────────────────────────────────────────────
 app.post('/criar-pix', async (req, res) => {
   try {
     const body = req.body;
@@ -44,54 +46,51 @@ app.post('/criar-pix', async (req, res) => {
         cpf:   body.cpf   || '',
         phone: body.telefone || '',
         address: {
-          street:       body.rua      || '',
-          streetNumber: body.numero   || '',
+          street:       body.rua    || '',
+          streetNumber: body.numero || '',
           complement:   body.complemento || '',
-          zipCode:      body.cep      || '',
-          neighborhood: body.bairro   || '',
-          city:         body.cidade   || '',
-          state:        body.uf       || '',
+          zipCode:      body.cep    || '',
+          neighborhood: body.bairro || '',
+          city:         body.cidade || '',
+          state:        body.uf     || '',
           country:      'br'
         }
       },
       pix: { expiresInDays: 1 },
       items: [{
-        title:      'BTS - 2026 World Tour Arirang - Arquibancada Meia Estudante',
-        quantity:   1,
-        unitPrice:  2967.80,
-        tangible:   false
+        title:     'BTS - 2026 World Tour Arirang - Arquibancada Meia Estudante',
+        quantity:  1,
+        unitPrice: 2967.80,
+        tangible:  false
       }],
       postbackUrl: '',
       metadata: 'buyticket-bts-2026'
     };
 
+    console.log('→ SyncPay payload:', JSON.stringify(payload));
+
     const response = await fetch(SYNCPAY_URL, {
       method:  'POST',
-      headers: {
-        'Authorization': `Basic ${API_KEY}`,
-        'Content-Type':  'application/json'
-      },
+      headers: { 'Authorization': `Basic ${API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
     const data = await response.json();
+    console.log('← SyncPay response:', JSON.stringify(data));
 
-    // Extrai os campos principais e retorna pro frontend
     res.json({
-      success:    response.ok,
-      status:     response.status,
-      brCode:     data.pix?.brCode       || data.pixCopiaECola || data.brcode || '',
-      qrCodeUrl:  data.pix?.qrCodeImage  || data.qrCodeImage   || '',
-      txId:       data.id                || data.txid          || '',
-      raw:        data
+      success:   response.ok,
+      status:    response.status,
+      brCode:    data.pix?.brCode      || data.pixCopiaECola || data.brcode || data.qr_code || '',
+      qrCodeUrl: data.pix?.qrCodeImage || data.qrCodeImage   || data.qr_code_url || '',
+      txId:      data.id               || data.txid          || '',
+      raw:       data
     });
 
   } catch (err) {
-    console.error('Erro SyncPay:', err.message);
+    console.error('Erro:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Proxy rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Proxy na porta ${PORT}`));
