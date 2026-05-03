@@ -54,8 +54,8 @@ app.post('/criar-pix', async (req, res) => {
 
     // PASSO 2: Criar cobrança PIX (Cash-in)
     const payload = {
-      amount:      500.00,
-      description: 'BTS - 2026 World Tour Arirang - Arquibancada Meia Estudante',
+      amount:      498.90,
+      description: 'BTS - 2026 World Tour Arirang - Meia Arquibancada',
       webhook_url: '',
       client: {
         name:  body.nome     || 'Cliente',
