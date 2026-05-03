@@ -20,6 +20,17 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'BuyTicket Proxy online ✅' });
 });
 
+// ─── Descobrir IP de saída ─────────────────────────────────────────────────
+app.get('/meu-ip', async (req, res) => {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const data = await r.json();
+    res.json({ ip_saida: data.ip });
+  } catch(e) {
+    res.json({ erro: e.message });
+  }
+});
+
 // ─── Endpoint: Criar cobrança PIX ─────────────────────────────────────────
 app.post('/criar-pix', async (req, res) => {
   try {
