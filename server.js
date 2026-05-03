@@ -6,8 +6,8 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Credenciais SyncPay ───────────────────────────────────────────────────
-const CLIENT_ID     = '84cb8b13-80cd-4d36-8d23-2dbb45770ab2';
-const CLIENT_SECRET = '42166320-6824-4493-a544-5515ace7c961';
+const CLIENT_ID     = 'c2c83e0f-c0f3-4327-9534-7cf03da46ac6';
+const CLIENT_SECRET = '736d0c11-a9bc-4e46-b580-274940f841b7';
 const BASE_URL      = 'https://api.syncpayments.com.br';
 // ──────────────────────────────────────────────────────────────────────────
 
