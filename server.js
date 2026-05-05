@@ -82,7 +82,10 @@ app.post('/criar-pix', async (req, res) => {
           street:       body.rua    || 'Rua',
           number:       body.numero || 'S/N',
           complement:   body.complemento || '',
-          zipCode:      ((body.cep || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2')),
+          zipCode:      (() => {
+            const raw = (body.cep || '01310100').replace(/\D/g, '');
+            return raw.slice(0,5) + '-' + raw.slice(5,8);
+          })(),
           neighborhood: body.bairro || 'Centro',
           city:         body.cidade || 'São Paulo',
           state:        body.uf     || 'SP',
