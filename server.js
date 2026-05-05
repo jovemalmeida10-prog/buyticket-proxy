@@ -5,10 +5,10 @@ const fetch   = require('node-fetch');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Credenciais SyncPay ───────────────────────────────────────────────────
-const CLIENT_ID     = 'c2c83e0f-c0f3-4327-9534-7cf03da46ac6';
-const CLIENT_SECRET = '736d0c11-a9bc-4e46-b580-274940f841b7';
-const BASE_URL      = 'https://api.syncpayments.com.br';
+// ─── Credenciais SigiloPay ─────────────────────────────────────────────────
+const PUBLIC_KEY = 'almeida-profissional10_bjwtz9lj7eg4gyz5';
+const SECRET_KEY = '4ak4p7abvsg9mmxxxglmpa0bi22ow7xyz8hjujce7cxtsfzmtf5kxcm151o32x8g';
+const BASE_URL   = 'https://app.sigilopay.com.br/api/v1';
 // ──────────────────────────────────────────────────────────────────────────
 
 app.use(cors({ origin: '*', methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
@@ -17,7 +17,7 @@ app.use(express.json());
 
 // ─── Health check ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'BuyTicket Proxy online ✅' });
+  res.json({ status: 'ok', message: 'BuyTicket Proxy (SigiloPay) online ✅' });
 });
 
 // ─── Descobrir IP de saída ─────────────────────────────────────────────────
@@ -30,73 +30,6 @@ app.get('/meu-ip', async (req, res) => {
     res.json({ erro: e.message });
   }
 });
-
-// ─── Criar cobrança PIX ────────────────────────────────────────────────────
-app.post('/criar-pix', async (req, res) => {
-  try {
-    const body = req.body;
-
-    // PASSO 1: Gerar Bearer Token
-    console.log('→ Gerando token SyncPay...');
-    const tokenResp = await fetch(`${BASE_URL}/api/partner/v1/auth-token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET })
-    });
-    const tokenData = await tokenResp.json();
-    console.log('← Token response:', JSON.stringify(tokenData));
-
-    if (!tokenData.access_token) {
-      return res.status(401).json({ success: false, error: 'Falha ao gerar token', raw: tokenData });
-    }
-
-    const token = tokenData.access_token;
-
-    // PASSO 2: Criar cobrança PIX (Cash-in)
-    const payload = {
-      amount:      498.90,
-      description: 'BTS - 2026 World Tour Arirang - Meia Arquibancada',
-      webhook_url: '',
-      client: {
-        name:  body.nome     || 'Cliente',
-        cpf:   body.cpf      || '',
-        email: body.email    || 'cliente@email.com',
-        phone: body.telefone || ''
-      }
-    };
-
-    console.log('→ Criando PIX:', JSON.stringify(payload));
-
-    const pixResp = await fetch(`${BASE_URL}/api/partner/v1/cash-in`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type':  'application/json',
-        'Accept':        'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const pixData = await pixResp.json();
-    console.log('← PIX response:', JSON.stringify(pixData));
-
-    const pixCode = pixData.pix_code || '';
-
-    res.json({
-      success:   pixResp.ok,
-      status:    pixResp.status,
-      brCode:    pixCode,
-      qrCodeUrl: pixCode ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(pixCode)}` : '',
-      txId:      pixData.identifier || '',
-      raw:       pixData
-    });
-
-  } catch (err) {
-    console.error('Erro:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 
 // ─── Buscar CEP ────────────────────────────────────────────────────────────
 app.get('/cep/:cep', async (req, res) => {
@@ -123,6 +56,73 @@ app.get('/cep/:cep', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Proxy na porta ${PORT}`));
-// Removido o listen duplicado - adicionando endpoint CEP antes do listen
+// ─── Criar cobrança PIX (SigiloPay) ───────────────────────────────────────
+app.post('/criar-pix', async (req, res) => {
+  try {
+    const body = req.body;
 
+    // Identificador único para a transação
+    const identifier = 'BT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+    const payload = {
+      identifier: identifier,
+      amount: 498.90,
+      client: {
+        name:  body.nome  || 'Cliente',
+        email: body.email || 'cliente@email.com',
+        cpf:   (body.cpf  || '').replace(/\D/g, ''),
+        phone: (body.telefone || '').replace(/\D/g, ''),
+        address: {
+          street:     body.rua    || '',
+          number:     body.numero || '',
+          complement: body.complemento || '',
+          zipCode:    (body.cep   || '').replace(/\D/g, ''),
+          neighborhood: body.bairro || '',
+          city:       body.cidade || '',
+          state:      body.uf     || '',
+        }
+      },
+      products: [{
+        name:     'BTS - 2026 World Tour Arirang - Meia Arquibancada',
+        quantity: 1,
+        price:    498.90
+      }],
+      metadata: { provider: 'BuyTicket', event: 'BTS-2026' }
+    };
+
+    console.log('→ SigiloPay payload:', JSON.stringify(payload));
+
+    const response = await fetch(`${BASE_URL}/gateway/pix/receive`, {
+      method: 'POST',
+      headers: {
+        'x-public-key':  PUBLIC_KEY,
+        'x-secret-key':  SECRET_KEY,
+        'Content-Type':  'application/json',
+        'Accept':        'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    console.log('← SigiloPay response:', JSON.stringify(data));
+
+    // Extrai o pix_code e qr_code da resposta
+    const brCode    = data.pix?.code        || data.pix?.brCode      || data.pix?.pixCode  || '';
+    const qrCodeUrl = data.pix?.qrCodeImage || data.pix?.qr_code_url || '';
+
+    res.json({
+      success:   response.ok,
+      status:    response.status,
+      brCode:    brCode,
+      qrCodeUrl: brCode ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(brCode)}` : qrCodeUrl,
+      txId:      data.transactionId || data.identifier || identifier,
+      raw:       data
+    });
+
+  } catch (err) {
+    console.error('Erro:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.listen(PORT, () => console.log(`✅ Proxy SigiloPay na porta ${PORT}`));
