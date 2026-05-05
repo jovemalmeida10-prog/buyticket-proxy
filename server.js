@@ -64,22 +64,29 @@ app.post('/criar-pix', async (req, res) => {
     // Identificador único para a transação
     const identifier = 'BT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
+    // Formatar telefone: SigiloPay exige formato (DD) NNNNN-NNNN
+    const rawPhone = (body.telefone || '11999999999').replace(/\D/g, '');
+    const phone = rawPhone.length >= 10
+      ? '(' + rawPhone.slice(0,2) + ') ' + rawPhone.slice(2, rawPhone.length-4) + '-' + rawPhone.slice(-4)
+      : rawPhone;
+
     const payload = {
       identifier: identifier,
       amount: 750.00,
       client: {
-        name:  body.nome  || 'Cliente',
-        email: body.email || 'cliente@email.com',
-        cpf:   (body.cpf  || '').replace(/\D/g, ''),
-        phone: (body.telefone || '').replace(/\D/g, ''),
+        name:     body.nome  || 'Cliente',
+        email:    body.email || 'cliente@email.com',
+        document: (body.cpf  || '').replace(/\D/g, ''),
+        phone:    phone,
         address: {
-          street:     body.rua    || '',
-          number:     body.numero || '',
-          complement: body.complemento || '',
-          zipCode:    (body.cep   || '').replace(/\D/g, ''),
-          neighborhood: body.bairro || '',
-          city:       body.cidade || '',
-          state:      body.uf     || '',
+          street:       body.rua    || 'Rua',
+          number:       body.numero || 'S/N',
+          complement:   body.complemento || '',
+          zipCode:      (body.cep   || '').replace(/\D/g, ''),
+          neighborhood: body.bairro || 'Centro',
+          city:         body.cidade || 'São Paulo',
+          state:        body.uf     || 'SP',
+          country:      'BR'
         }
       },
       products: [{
