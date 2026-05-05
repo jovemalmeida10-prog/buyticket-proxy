@@ -76,7 +76,7 @@ app.post('/criar-pix', async (req, res) => {
       client: {
         name:     body.nome  || 'Cliente',
         email:    body.email || 'cliente@email.com',
-        document: (body.cpf  || '').replace(/\D/g, ''),
+        document: (body.cpf  || '00000000000').replace(/\D/g, ''),
         phone:    phone,
         address: {
           street:       body.rua    || 'Rua',
