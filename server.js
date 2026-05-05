@@ -82,7 +82,7 @@ app.post('/criar-pix', async (req, res) => {
           street:       body.rua    || 'Rua',
           number:       body.numero || 'S/N',
           complement:   body.complemento || '',
-          zipCode:      (body.cep   || '').replace(/\D/g, ''),
+          zipCode:      ((body.cep || '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2')),
           neighborhood: body.bairro || 'Centro',
           city:         body.cidade || 'São Paulo',
           state:        body.uf     || 'SP',
@@ -90,6 +90,7 @@ app.post('/criar-pix', async (req, res) => {
         }
       },
       products: [{
+        id:       'BTS-MEIA-ARQUIBANCADA-001',
         name:     'BTS - 2026 World Tour Arirang - Meia Arquibancada',
         quantity: 1,
         price:    750.00
