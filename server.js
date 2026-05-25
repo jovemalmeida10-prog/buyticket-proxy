@@ -72,7 +72,7 @@ app.post('/criar-pix', async (req, res) => {
 
     const payload = {
       identifier: identifier,
-      amount: 750.00,
+      amount: parseFloat(body.amount) || 750.00,
       client: {
         name:     body.nome  || 'Cliente',
         email:    body.email || 'cliente@email.com',
@@ -94,9 +94,9 @@ app.post('/criar-pix', async (req, res) => {
       },
       products: [{
         id:       'BTS-MEIA-ARQUIBANCADA-001',
-        name:     'BTS - 2026 World Tour Arirang - Meia Arquibancada',
+        name:     body.produto || 'BTS - 2026 World Tour Arirang',
         quantity: 1,
-        price:    750.00
+        price:    parseFloat(body.amount) || 750.00
       }],
       metadata: { provider: 'BuyTicket', event: 'BTS-2026' }
     };
