@@ -5,10 +5,10 @@ const fetch   = require('node-fetch');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Credenciais SigiloPay ─────────────────────────────────────────────────
-const PUBLIC_KEY = 'almeida-profissional10_bjwtz9lj7eg4gyz5';
-const SECRET_KEY = '4ak4p7abvsg9mmxxxglmpa0bi22ow7xyz8hjujce7cxtsfzmtf5kxcm151o32x8g';
-const BASE_URL   = 'https://app.sigilopay.com.br/api/v1';
+// ─── Credenciais OnePay ────────────────────────────────────────────────────
+const CLIENT_ID = 'cli_negbf4exbdk1m5en2k6tunt3';
+const TOKEN     = 'one_wzvvlBkyBzVfqvx8uyz463sw9vBNVxgy9NgzwEW51IdpL8mKPiqbBoElA1gbII4V';
+const BASE_URL  = 'https://onepayhub.one/api/v1';
 // ──────────────────────────────────────────────────────────────────────────
 
 app.use(cors({ origin: '*', methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
@@ -17,7 +17,7 @@ app.use(express.json());
 
 // ─── Health check ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'BuyTicket Proxy (SigiloPay) online ✅' });
+  res.json({ status: 'ok', message: 'BuyTicket Proxy (OnePay) online ✅' });
 });
 
 // ─── Descobrir IP de saída ─────────────────────────────────────────────────
@@ -38,76 +38,37 @@ app.get('/cep/:cep', async (req, res) => {
     const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
     const data = await r.json();
     if (data.erro) return res.json({ encontrado: false });
-    res.json({
-      encontrado: true,
-      uf: data.uf,
-      bairro: data.bairro,
-      cidade: data.localidade,
-      rua: data.logradouro
-    });
+    res.json({ encontrado: true, uf: data.uf, bairro: data.bairro, cidade: data.localidade, rua: data.logradouro });
   } catch(e) {
     try {
       const r2 = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
       const d2 = await r2.json();
       res.json({ encontrado: true, uf: d2.state, bairro: d2.neighborhood, cidade: d2.city, rua: d2.street });
     } catch(e2) {
-      res.json({ encontrado: false, erro: e2.message });
+      res.json({ encontrado: false });
     }
   }
 });
 
-// ─── Criar cobrança PIX (SigiloPay) ───────────────────────────────────────
+// ─── Criar cobrança PIX (OnePay) ───────────────────────────────────────────
 app.post('/criar-pix', async (req, res) => {
   try {
     const body = req.body;
-
-    // Identificador único para a transação
-    const identifier = 'BT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-    // Formatar telefone: SigiloPay exige formato (DD) NNNNN-NNNN
-    const rawPhone = (body.telefone || '11999999999').replace(/\D/g, '');
-    const phone = rawPhone.length >= 10
-      ? '(' + rawPhone.slice(0,2) + ') ' + rawPhone.slice(2, rawPhone.length-4) + '-' + rawPhone.slice(-4)
-      : rawPhone;
+    const amount = parseFloat(body.amount) || 850.00;
+    const nome   = body.nome || 'Cliente';
 
     const payload = {
-      identifier: identifier,
-      amount: parseFloat(body.amount) || 750.00,
-      client: {
-        name:     body.nome  || 'Cliente',
-        email:    body.email || 'cliente@email.com',
-        document: (body.cpf  || '52998224725').replace(/\D/g, ''),
-        phone:    phone,
-        address: {
-          street:       body.rua    || 'Rua',
-          number:       body.numero || 'S/N',
-          complement:   body.complemento || '',
-          zipCode:      (() => {
-            const raw = (body.cep || '01310100').replace(/\D/g, '');
-            return raw.slice(0,5) + '-' + raw.slice(5,8);
-          })(),
-          neighborhood: body.bairro || 'Centro',
-          city:         body.cidade || 'São Paulo',
-          state:        body.uf     || 'SP',
-          country:      'BR'
-        }
-      },
-      products: [{
-        id:       'BTS-MEIA-ARQUIBANCADA-001',
-        name:     body.produto || 'BTS - 2026 World Tour Arirang',
-        quantity: 1,
-        price:    parseFloat(body.amount) || 750.00
-      }],
-      metadata: { provider: 'BuyTicket', event: 'BTS-2026' }
+      amount:     amount,
+      payer_name: nome
     };
 
-    console.log('→ SigiloPay payload:', JSON.stringify(payload));
+    console.log('→ OnePay payload:', JSON.stringify(payload));
 
-    const response = await fetch(`${BASE_URL}/gateway/pix/receive`, {
+    const response = await fetch(`${BASE_URL}/cashin/pix`, {
       method: 'POST',
       headers: {
-        'x-public-key':  PUBLIC_KEY,
-        'x-secret-key':  SECRET_KEY,
+        'Authorization': `Bearer ${TOKEN}`,
+        'X-Client-ID':   CLIENT_ID,
         'Content-Type':  'application/json',
         'Accept':        'application/json'
       },
@@ -115,18 +76,18 @@ app.post('/criar-pix', async (req, res) => {
     });
 
     const data = await response.json();
-    console.log('← SigiloPay response:', JSON.stringify(data));
+    console.log('← OnePay response:', JSON.stringify(data));
 
-    // Extrai o pix_code e qr_code da resposta
-    const brCode    = data.pix?.code        || data.pix?.brCode      || data.pix?.pixCode  || '';
-    const qrCodeUrl = data.pix?.qrCodeImage || data.pix?.qr_code_url || '';
+    const brCode    = data.qr_code            || '';
+    const qrCodeUrl = data.qr_code_image_url  || 
+                      (brCode ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(brCode)}` : '');
 
     res.json({
-      success:   response.ok,
+      success:   data.success || response.ok,
       status:    response.status,
       brCode:    brCode,
-      qrCodeUrl: brCode ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(brCode)}` : qrCodeUrl,
-      txId:      data.transactionId || data.identifier || identifier,
+      qrCodeUrl: qrCodeUrl,
+      txId:      data.transaction?.uuid || '',
       raw:       data
     });
 
@@ -136,4 +97,4 @@ app.post('/criar-pix', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Proxy SigiloPay na porta ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Proxy OnePay na porta ${PORT}`));
