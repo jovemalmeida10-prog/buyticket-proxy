@@ -64,6 +64,7 @@ app.post('/criar-pix', async (req, res) => {
       customer: {
         name:     nome,
         email:    email,
+        phone:    body.telefone ? body.telefone.replace(/\D/g, '') : '',
         document: {
           type:   'cpf',
           number: cpf
