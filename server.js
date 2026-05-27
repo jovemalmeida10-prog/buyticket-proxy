@@ -59,7 +59,8 @@ app.post('/criar-pix', async (req, res) => {
 
     const payload = {
       amount:     amount,
-      payer_name: nome
+      payer_name: nome,
+      acquirer:   1
     };
 
     console.log('→ OnePay payload:', JSON.stringify(payload));
