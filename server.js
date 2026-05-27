@@ -64,7 +64,10 @@ app.post('/criar-pix', async (req, res) => {
       customer: {
         name:     nome,
         email:    email,
-        document: cpf
+        document: {
+          type:   'cpf',
+          number: cpf
+        }
       },
       pix: {
         expiresInMinutes: 30
